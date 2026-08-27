@@ -1,0 +1,80 @@
+name: DietApp
+options:
+  deploymentTarget:
+    iOS: "17.0"
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  DietApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DietApp
+    info:
+      path: DietApp/Resources/Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSHealthShareUsageDescription: "歩数や運動データを取得して消費カロリーを計算するために使用します。"
+        NSHealthUpdateUsageDescription: "アプリ内で記録した運動データをヘルスケアに保存するために使用します。"
+        NSCameraUsageDescription: "食事の写真を撮影してカロリーを推定するために使用します。"
+        NSPhotoLibraryUsageDescription: "写真ライブラリから食事の画像を選択するために使用します。"
+    entitlements:
+      path: DietApp/Resources/DietApp.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+    dependencies:
+      - target: DietAppWidgetExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.dietapp
+  DietAppWidgetExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DietAppWidget
+    info:
+      path: DietAppWidget/Info.plist
+      properties:
+        CFBundleDisplayName: DietApp Widget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.dietapp.widget
+  DietAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DietAppTests
+    dependencies:
+      - target: DietApp
+  DietAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DietAppUITests
+    dependencies:
+      - target: DietApp
+schemes:
+  DietApp:
+    build:
+      targets:
+        DietApp: all
+        DietAppWidgetExtension: all
+        DietAppTests: [test]
+        DietAppUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DietAppTests

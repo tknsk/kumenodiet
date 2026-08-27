@@ -1,0 +1,14 @@
+# XcodeGen generates the project file; don't commit it
+*.xcodeproj/
+
+# Xcode user state / build artifacts
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.build/
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# macOS
+.DS_Store
