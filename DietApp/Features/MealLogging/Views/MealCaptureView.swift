@@ -37,14 +37,17 @@ private struct MealCaptureContentView: View {
     @Bindable var viewModel: MealLoggingViewModel
     let onSaved: () -> Void
 
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var pickerErrorMessage: String?
+
     var body: some View {
         Form {
             Section {
-                PhotosPicker(selection: $viewModel.selectedPhotoItem, matching: .images) {
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                     Label("写真を選ぶ", systemImage: "photo")
                 }
-                .onChange(of: viewModel.selectedPhotoItem) {
-                    Task { await viewModel.loadSelectedPhoto() }
+                .onChange(of: selectedPhotoItem) {
+                    Task { await loadSelectedPhoto() }
                 }
 
                 if let imageData = viewModel.selectedImageData, let uiImage = UIImage(data: imageData) {
@@ -63,7 +66,7 @@ private struct MealCaptureContentView: View {
                 }
             }
 
-            if let errorMessage = viewModel.errorMessage {
+            if let errorMessage = pickerErrorMessage ?? viewModel.errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
                     .foregroundStyle(.red)
@@ -93,6 +96,18 @@ private struct MealCaptureContentView: View {
                     }
                 }
             }
+        }
+    }
+
+    private func loadSelectedPhoto() async {
+        pickerErrorMessage = nil
+        guard let selectedPhotoItem else { return }
+        do {
+            if let data = try await selectedPhotoItem.loadTransferable(type: Data.self) {
+                await viewModel.setSelectedImage(data)
+            }
+        } catch {
+            pickerErrorMessage = error.localizedDescription
         }
     }
 }

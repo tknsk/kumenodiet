@@ -1,7 +1,6 @@
 import Foundation
 import SwiftData
 import Observation
-import PhotosUI
 
 @MainActor
 @Observable
@@ -10,7 +9,6 @@ final class MealLoggingViewModel {
     private let user: UserAccount
     private let recognitionService: FoodRecognitionService
 
-    var selectedPhotoItem: PhotosPickerItem?
     var selectedImageData: Data?
     var recognitionResults: [FoodRecognitionResult] = []
     var isRecognizing = false
@@ -26,17 +24,9 @@ final class MealLoggingViewModel {
         self.recognitionService = recognitionService
     }
 
-    func loadSelectedPhoto() async {
-        guard let selectedPhotoItem else { return }
-        errorMessage = nil
-        do {
-            if let data = try await selectedPhotoItem.loadTransferable(type: Data.self) {
-                selectedImageData = data
-                await recognize(imageData: data)
-            }
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+    func setSelectedImage(_ data: Data) async {
+        selectedImageData = data
+        await recognize(imageData: data)
     }
 
     func recognize(imageData: Data) async {
@@ -67,7 +57,6 @@ final class MealLoggingViewModel {
     }
 
     func reset() {
-        selectedPhotoItem = nil
         selectedImageData = nil
         recognitionResults = []
         errorMessage = nil
