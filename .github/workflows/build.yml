@@ -25,3 +25,28 @@ jobs:
             -scheme DietApp \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: Archive (Device, unsigned) for sideloading
+        run: |
+          xcodebuild archive \
+            -project DietApp.xcodeproj \
+            -scheme DietApp \
+            -archivePath build/DietApp.xcarchive \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Package unsigned .ipa
+        run: |
+          mkdir -p Payload
+          cp -r "build/DietApp.xcarchive/Products/Applications/DietApp.app" Payload/
+          zip -r DietApp-unsigned.ipa Payload
+
+      - name: Upload .ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DietApp-unsigned-ipa
+          path: DietApp-unsigned.ipa
+          retention-days: 14
