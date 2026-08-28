@@ -30,6 +30,7 @@ targets:
         com.apple.developer.healthkit: true
     dependencies:
       - target: DietAppWidgetExtension
+      - sdk: HealthKit.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.dietapp
