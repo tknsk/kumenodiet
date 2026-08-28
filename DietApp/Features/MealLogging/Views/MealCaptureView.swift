@@ -2,6 +2,20 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import UIKit
+import UniformTypeIdentifiers
+
+// PhotosPickerItem.loadTransferable(type: Data.self) は、写真の表現形式を
+// システムが解決できず "The data couldn't be read because it is missing." で
+// 失敗することがあるため、画像コンテンツタイプを明示したラッパーを介して読み込む。
+private struct TransferableMealImage: Transferable {
+    let data: Data
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(importedContentType: .image) { data in
+            TransferableMealImage(data: data)
+        }
+    }
+}
 
 struct MealCaptureView: View {
     @Environment(AppState.self) private var appState
@@ -103,8 +117,8 @@ private struct MealCaptureContentView: View {
         pickerErrorMessage = nil
         guard let selectedPhotoItem else { return }
         do {
-            if let data = try await selectedPhotoItem.loadTransferable(type: Data.self) {
-                await viewModel.setSelectedImage(data)
+            if let image = try await selectedPhotoItem.loadTransferable(type: TransferableMealImage.self) {
+                await viewModel.setSelectedImage(image.data)
             }
         } catch {
             pickerErrorMessage = error.localizedDescription
