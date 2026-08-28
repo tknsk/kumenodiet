@@ -9,14 +9,16 @@ final class MealEntry {
     var proteinGrams: Double
     var fatGrams: Double
     var photoFileName: String?
+    var ownerEmail: String
 
     init(
         date: Date = .now,
-        name: String = "",
-        calories: Double = 0,
-        proteinGrams: Double = 0,
-        fatGrams: Double = 0,
-        photoFileName: String? = nil
+        name: String,
+        calories: Double,
+        proteinGrams: Double,
+        fatGrams: Double,
+        photoFileName: String? = nil,
+        ownerEmail: String
     ) {
         self.date = date
         self.name = name
@@ -24,5 +26,6 @@ final class MealEntry {
         self.proteinGrams = proteinGrams
         self.fatGrams = fatGrams
         self.photoFileName = photoFileName
+        self.ownerEmail = ownerEmail
     }
 }

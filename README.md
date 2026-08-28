@@ -41,12 +41,16 @@ docs/
 ## 実装状況
 - [x] プロジェクト雛形(XcodeGen構成、Feature単位のディレクトリ分割)
 - [x] Auth機能 — メール・パスワードでのローカル認証(SwiftData + Keychain、パスワードは端末外に送信しない)
-- [ ] MealLogging — 写真からのカロリー推定。無料枠のあるクラウドAPIを使う方針だが、具体的な連携先(候補: LogMeal等)とAPIキー管理は未着手。現状は認識結果を返すプレースホルダーのみ
-- [ ] Activity — HealthKit連携(歩数・消費カロリー取得)は未実装
-- [ ] Weight / BMI
-- [ ] DietPlan(目標体重・期間からの必要カロリー計算)
-- [ ] Suggestions(食事・運動の提案)
+- [x] Weight / BMI — 身長・体重の記録とBMI計算
+- [x] DietPlan — 目標体重・期間から必要な1日のカロリー収支を計算
+- [x] Activity — HealthKitから今日の歩数・消費カロリーを取得 + 手動での運動記録
+- [x] MealLogging — 写真からのカロリー・栄養素推定。LogMeal / OpenAI(GPT-4o系Vision)を設定画面で切り替え可能。**利用にはユーザー自身がAPIキーを取得し、設定画面に入力する必要がある**(APIキーはリポジトリに含めず、Keychainにのみ保存)
+- [ ] Suggestions(食事・運動の提案)— MealLogging/DietPlanの結果を使う想定でまだ未実装
 - [ ] Widget — 画面のみのプレースホルダー。App Group経由でのデータ共有は未実装
+
+### MealLoggingのAPIキー取得先
+- LogMeal: https://logmeal.com/api/ (無料枠あり、和食の認識精度は要検証)
+- OpenAI: https://platform.openai.com/api-keys (従量課金、精度重視。1枚あたり数円未満〜数円程度を想定)
 
 ## 認証の設計メモ
 - データは全て端末ローカル(SwiftData)に保存し、サーバーへは送信しない
