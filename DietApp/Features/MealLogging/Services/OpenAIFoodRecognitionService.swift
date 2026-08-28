@@ -5,14 +5,17 @@ import Foundation
 final class OpenAIFoodRecognitionService: FoodRecognitionService {
     enum ServiceError: LocalizedError {
         case missingAPIKey
-        case invalidResponse
+        case httpError(statusCode: Int, body: String)
+        case invalidResponse(body: String)
 
         var errorDescription: String? {
             switch self {
             case .missingAPIKey:
                 return "OpenAIのAPIキーが設定されていません。設定画面で入力してください。"
-            case .invalidResponse:
-                return "OpenAIからの応答を解析できませんでした。"
+            case .httpError(let statusCode, let body):
+                return "OpenAIからエラーが返されました(status: \(statusCode))。\(body)"
+            case .invalidResponse(let body):
+                return "OpenAIからの応答を解析できませんでした。応答内容: \(body)"
             }
         }
     }
@@ -44,18 +47,31 @@ final class OpenAIFoodRecognitionService: FoodRecognitionService {
             ChatRequest(model: model, imageBase64: imageData.base64EncodedString())
         )
 
-        let (data, _) = try await session.data(for: request)
-        let chatResponse = try JSONDecoder().decode(ChatResponse.self, from: data)
+        let (data, response) = try await session.data(for: request)
+        if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+            throw ServiceError.httpError(statusCode: httpResponse.statusCode, body: Self.bodyPreview(data))
+        }
+
+        guard let chatResponse = try? JSONDecoder().decode(ChatResponse.self, from: data) else {
+            throw ServiceError.invalidResponse(body: Self.bodyPreview(data))
+        }
 
         guard
             let content = chatResponse.choices.first?.message.content,
-            let contentData = content.data(using: .utf8)
+            let contentData = content.data(using: .utf8),
+            let analysis = try? JSONDecoder().decode(FoodAnalysis.self, from: contentData)
         else {
-            throw ServiceError.invalidResponse
+            throw ServiceError.invalidResponse(body: Self.bodyPreview(data))
         }
 
-        let analysis = try JSONDecoder().decode(FoodAnalysis.self, from: contentData)
         return Self.makeResults(from: analysis)
+    }
+
+    private static func bodyPreview(_ data: Data) -> String {
+        guard let text = String(data: data, encoding: .utf8), !text.isEmpty else {
+            return "(空、または解析できない応答)"
+        }
+        return String(text.prefix(300))
     }
 
     static func makeResults(from analysis: FoodAnalysis) -> [FoodRecognitionResult] {
@@ -151,5 +167,17 @@ struct FoodAnalysis: Decodable {
         let calories: Double
         let proteinGrams: Double
         let fatGrams: Double
+
+        enum CodingKeys: String, CodingKey {
+            case foodName, calories, proteinGrams, fatGrams
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            foodName = (try? container.decode(String.self, forKey: .foodName)) ?? "食事"
+            calories = (try? container.decode(Double.self, forKey: .calories)) ?? 0
+            proteinGrams = (try? container.decode(Double.self, forKey: .proteinGrams)) ?? 0
+            fatGrams = (try? container.decode(Double.self, forKey: .fatGrams)) ?? 0
+        }
     }
 }

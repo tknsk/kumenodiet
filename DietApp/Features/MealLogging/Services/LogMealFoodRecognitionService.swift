@@ -6,14 +6,17 @@ import Foundation
 final class LogMealFoodRecognitionService: FoodRecognitionService {
     enum ServiceError: LocalizedError {
         case missingAPIKey
-        case invalidResponse
+        case httpError(statusCode: Int, body: String)
+        case decodingFailed(body: String)
 
         var errorDescription: String? {
             switch self {
             case .missingAPIKey:
                 return "LogMealのAPIキーが設定されていません。設定画面で入力してください。"
-            case .invalidResponse:
-                return "LogMealからの応答を解析できませんでした。"
+            case .httpError(let statusCode, let body):
+                return "LogMealからエラーが返されました(status: \(statusCode))。\(body)"
+            case .decodingFailed(let body):
+                return "LogMealからの応答を解析できませんでした。応答内容: \(body)"
             }
         }
     }
@@ -45,8 +48,9 @@ final class LogMealFoodRecognitionService: FoodRecognitionService {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.multipartBody(imageData: imageData, boundary: boundary)
 
-        let (data, _) = try await session.data(for: request)
-        return try JSONDecoder().decode(SegmentationResponse.self, from: data).imageId
+        let (data, response) = try await session.data(for: request)
+        try Self.checkHTTPStatus(response: response, data: data)
+        return try Self.decode(SegmentationResponse.self, from: data).imageId
     }
 
     private func fetchNutritionalInfo(imageId: Int, apiKey: String) async throws -> NutritionalInfoResponse {
@@ -56,8 +60,9 @@ final class LogMealFoodRecognitionService: FoodRecognitionService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(["imageId": imageId])
 
-        let (data, _) = try await session.data(for: request)
-        return try JSONDecoder().decode(NutritionalInfoResponse.self, from: data)
+        let (data, response) = try await session.data(for: request)
+        try Self.checkHTTPStatus(response: response, data: data)
+        return try Self.decode(NutritionalInfoResponse.self, from: data)
     }
 
     static func makeResults(from response: NutritionalInfoResponse) -> [FoodRecognitionResult] {
@@ -72,6 +77,28 @@ final class LogMealFoodRecognitionService: FoodRecognitionService {
                 fatGrams: fat
             )
         ]
+    }
+
+    private static func checkHTTPStatus(response: URLResponse, data: Data) throws {
+        guard let httpResponse = response as? HTTPURLResponse else { return }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw ServiceError.httpError(statusCode: httpResponse.statusCode, body: bodyPreview(data))
+        }
+    }
+
+    private static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            throw ServiceError.decodingFailed(body: bodyPreview(data))
+        }
+    }
+
+    private static func bodyPreview(_ data: Data) -> String {
+        guard let text = String(data: data, encoding: .utf8), !text.isEmpty else {
+            return "(空、または解析できない応答)"
+        }
+        return String(text.prefix(300))
     }
 
     private static func multipartBody(imageData: Data, boundary: String) -> Data {
@@ -101,12 +128,33 @@ struct NutritionalInfoResponse: Decodable {
     struct NutritionalInfo: Decodable {
         let calories: Double
         let totalNutrients: [String: NutrientValue]
+
+        enum CodingKeys: String, CodingKey {
+            case calories, totalNutrients
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            calories = (try? container.decode(Double.self, forKey: .calories)) ?? 0
+            totalNutrients = (try? container.decode([String: NutrientValue].self, forKey: .totalNutrients)) ?? [:]
+        }
     }
 
     struct NutrientValue: Decodable {
         let label: String
         let quantity: Double
         let unit: String
+
+        enum CodingKeys: String, CodingKey {
+            case label, quantity, unit
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            label = (try? container.decode(String.self, forKey: .label)) ?? ""
+            quantity = (try? container.decode(Double.self, forKey: .quantity)) ?? 0
+            unit = (try? container.decode(String.self, forKey: .unit)) ?? ""
+        }
     }
 }
 
