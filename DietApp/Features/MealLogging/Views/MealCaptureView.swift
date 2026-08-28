@@ -2,20 +2,6 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import UIKit
-import UniformTypeIdentifiers
-
-// PhotosPickerItem.loadTransferable(type: Data.self) は、写真の表現形式を
-// システムが解決できず "The data couldn't be read because it is missing." で
-// 失敗することがあるため、画像コンテンツタイプを明示したラッパーを介して読み込む。
-private struct TransferableMealImage: Transferable {
-    let data: Data
-
-    static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(importedContentType: .image) { data in
-            TransferableMealImage(data: data)
-        }
-    }
-}
 
 struct MealCaptureView: View {
     @Environment(AppState.self) private var appState
@@ -51,17 +37,28 @@ private struct MealCaptureContentView: View {
     @Bindable var viewModel: MealLoggingViewModel
     let onSaved: () -> Void
 
-    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var showingPicker = false
     @State private var pickerErrorMessage: String?
 
     var body: some View {
         Form {
             Section {
-                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                Button {
+                    showingPicker = true
+                } label: {
                     Label("写真を選ぶ", systemImage: "photo")
                 }
-                .onChange(of: selectedPhotoItem) {
-                    Task { await loadSelectedPhoto() }
+                .sheet(isPresented: $showingPicker) {
+                    PhotoPickerRepresentable(
+                        onImagePicked: { data in
+                            pickerErrorMessage = nil
+                            Task { await viewModel.setSelectedImage(data) }
+                        },
+                        onError: { message in
+                            pickerErrorMessage = message
+                        }
+                    )
+                    .ignoresSafeArea()
                 }
 
                 if let imageData = viewModel.selectedImageData, let uiImage = UIImage(data: imageData) {
@@ -112,16 +109,58 @@ private struct MealCaptureContentView: View {
             }
         }
     }
+}
 
-    private func loadSelectedPhoto() async {
-        pickerErrorMessage = nil
-        guard let selectedPhotoItem else { return }
-        do {
-            if let image = try await selectedPhotoItem.loadTransferable(type: TransferableMealImage.self) {
-                await viewModel.setSelectedImage(image.data)
+// SwiftUIのPhotosPicker + Transferableは端末によって
+// "The data couldn't be read because it is missing" で失敗する既知の不具合があるため、
+// より枯れたPHPickerViewController + NSItemProviderで写真データを取得する。
+private struct PhotoPickerRepresentable: UIViewControllerRepresentable {
+    var onImagePicked: (Data) -> Void
+    var onError: (String) -> Void
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var configuration = PHPickerConfiguration()
+        configuration.filter = .images
+        configuration.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onImagePicked: onImagePicked, onError: onError)
+    }
+
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let onImagePicked: (Data) -> Void
+        let onError: (String) -> Void
+
+        init(onImagePicked: @escaping (Data) -> Void, onError: @escaping (String) -> Void) {
+            self.onImagePicked = onImagePicked
+            self.onError = onError
+        }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            picker.dismiss(animated: true)
+            guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else {
+                return
             }
-        } catch {
-            pickerErrorMessage = error.localizedDescription
+
+            provider.loadObject(ofClass: UIImage.self) { [onImagePicked, onError] object, error in
+                DispatchQueue.main.async {
+                    if let error {
+                        onError(error.localizedDescription)
+                        return
+                    }
+                    guard let uiImage = object as? UIImage, let data = uiImage.jpegData(compressionQuality: 0.85) else {
+                        onError("選択した写真を読み込めませんでした。別の写真で試してください。")
+                        return
+                    }
+                    onImagePicked(data)
+                }
+            }
         }
     }
 }
