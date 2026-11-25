@@ -5,6 +5,7 @@ struct SettingsView: View {
     @State private var provider: FoodRecognitionProvider = FoodRecognitionServiceFactory.selectedProvider
     @State private var logMealAPIKey: String = FoodRecognitionAPIKeyStore.logMealAPIKey ?? ""
     @State private var openAIAPIKey: String = FoodRecognitionAPIKeyStore.openAIAPIKey ?? ""
+    @State private var dailyGoalText: String = String(WidgetSnapshotStore.dailyCalorieGoal)
 
     var body: some View {
         NavigationStack {
@@ -42,6 +43,20 @@ struct SettingsView: View {
                     Text("写真からのカロリー推定")
                 } footer: {
                     Text("選んだAPIのキーが未入力の場合、写真からの推定はエラーになります。両方のキーを設定していつでも切り替えられます。")
+                }
+
+                Section {
+                    TextField("1日の摂取目標(kcal)", text: $dailyGoalText)
+                        .keyboardType(.numberPad)
+                        .onChange(of: dailyGoalText) {
+                            if let goal = Int(dailyGoalText), goal > 0 {
+                                WidgetSnapshotStore.dailyCalorieGoal = goal
+                            }
+                        }
+                } header: {
+                    Text("ウィジェット")
+                } footer: {
+                    Text("ホーム画面ウィジェットの「残りカロリー」は、この目標 − 摂取 + 消費 で計算します。")
                 }
 
                 Section("機能カスタマイズ") {

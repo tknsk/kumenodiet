@@ -13,12 +13,17 @@ struct DietAppWidgetProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DietAppEntry) -> Void) {
-        completion(placeholder(in: context))
+        let snapshot = WidgetSnapshotStore.load()
+        completion(DietAppEntry(date: .now, caloriesConsumed: snapshot.caloriesConsumed, caloriesRemaining: snapshot.caloriesRemaining))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<DietAppEntry>) -> Void) {
-        // TODO: App Group経由でメインアプリと当日の摂取・消費カロリーを共有して表示する
-        let entry = placeholder(in: context)
+        let snapshot = WidgetSnapshotStore.load()
+        let entry = DietAppEntry(
+            date: .now,
+            caloriesConsumed: snapshot.caloriesConsumed,
+            caloriesRemaining: snapshot.caloriesRemaining
+        )
         completion(Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(60 * 30))))
     }
 }
@@ -33,6 +38,9 @@ struct DietAppWidgetEntryView: View {
                 .foregroundStyle(.secondary)
             Text("\(entry.caloriesRemaining) kcal")
                 .font(.title2.bold())
+            Text("摂取 \(entry.caloriesConsumed) kcal")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
         .padding()
         .containerBackground(.orange.gradient, for: .widget)

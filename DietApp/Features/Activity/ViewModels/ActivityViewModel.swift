@@ -44,6 +44,7 @@ final class ActivityViewModel {
             async let energy = healthKitService.fetchTodayActiveEnergyBurned()
             todayStepCount = try await steps
             todayActiveEnergyBurned = try await energy
+            WidgetSnapshotStore.saveHealthKitBurned(todayActiveEnergyBurned ?? 0)
         } catch {
             healthKitErrorMessage = error.localizedDescription
         }

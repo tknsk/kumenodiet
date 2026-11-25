@@ -16,6 +16,7 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: DietApp
+      - path: Shared
     info:
       path: DietApp/Resources/Info.plist
       properties:
@@ -28,6 +29,7 @@ targets:
       path: DietApp/Resources/DietApp.entitlements
       properties:
         com.apple.developer.healthkit: true
+        com.apple.security.application-groups: [group.com.example.dietapp]
     dependencies:
       - target: DietAppWidgetExtension
       - sdk: HealthKit.framework
@@ -40,6 +42,11 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: DietAppWidget
+      - path: Shared
+    entitlements:
+      path: DietAppWidget/DietAppWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.example.dietapp]
     info:
       path: DietAppWidget/Info.plist
       properties:
